@@ -324,7 +324,21 @@ class wayfire_move : public wf::plugin_interface_t
             return;
         }
 
-        /* Snap the view */
+        /**
+         * Snap the view
+         * A view that is fullscreened may break if resized i.e
+         * tiled_vertical or tiled_horizontal, games usually have
+         * their own option to be fullscreen.
+         * If the compositor resizes them and thus removes
+         * for xwayland _NET_WM_STATE fullscreen (there
+         * are not much wayland games around to test what wayland games
+         * do when they have fullscreen in their settings and
+         * the compositor puts them in another state) they break.
+         *
+         * This way fullscreened view can be moved from one
+         * output to another and be restored to fullscreen
+         * on a different output (hopefully with the same resolotion)
+         */
         if (enable_snap && (slot.slot_id != 0))
         {
             snap_signal data;
@@ -696,7 +710,8 @@ class wayfire_move : public wf::plugin_interface_t
         /* View might get destroyed when updating multi-output */
         if (view)
         {
-            if (enable_snap && !MOVE_HELPER->is_view_fixed())
+            if (enable_snap && !MOVE_HELPER->is_view_fixed() &&
+                !this->view->fullscreen)
             {
                 update_slot(calc_slot(input.x, input.y));
             }

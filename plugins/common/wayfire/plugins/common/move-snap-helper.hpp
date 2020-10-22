@@ -140,6 +140,15 @@ class move_snap_helper_t : public wf::custom_data_t
         }
 
         view->disconnect_signal("geometry-changed", &view_geometry_changed);
+        /**
+         * Restore the fullscreen state so the window is
+         * not in a weird position afterwards, fullscreen
+         * are by spec the geometry of the output (or span outputs)
+         */
+        if (view->fullscreen)
+        {
+            view->fullscreen_request(output, true);
+        }        
     }
 
     /** @return Whether the view is freely moving or stays at the same place */
@@ -158,13 +167,8 @@ class move_snap_helper_t : public wf::custom_data_t
     /** Move the view out of its slot */
     virtual void snap_off()
     {
-        view_in_slot = false;
-        if (view->fullscreen)
-        {
-            view->fullscreen_request(view->get_output(), false);
-        }
 
-        if (view->tiled_edges)
+        if (view->tiled_edges && !view->fullscreen)
         {
             view->tile_request(0);
         }
