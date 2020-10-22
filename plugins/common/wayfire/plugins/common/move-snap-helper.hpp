@@ -147,7 +147,7 @@ class move_snap_helper_t : public wf::custom_data_t
          */
         if (view->fullscreen)
         {
-            view->fullscreen_request(output, true);
+            view->fullscreen_request(view->get_output(), true);
         }        
     }
 
