@@ -147,8 +147,14 @@ class move_snap_helper_t : public wf::custom_data_t
          */
         if (view->fullscreen)
         {
-            view->fullscreen_request(view->get_output(), true);
-        }        
+            wf::output_t *output   = view->get_output();
+            wf::point_t current_ws = output->workspace;
+            wf::point_t target_ws  =
+                floor(
+                    (last_grabbing_position.x / view->get_output_geometry().width) +
+                    current_ws.x);
+            view->fullscreen_request(view->get_output(), true, target_ws);
+        }
     }
 
     /** @return Whether the view is freely moving or stays at the same place */
@@ -167,7 +173,6 @@ class move_snap_helper_t : public wf::custom_data_t
     /** Move the view out of its slot */
     virtual void snap_off()
     {
-
         if (view->tiled_edges && !view->fullscreen)
         {
             view->tile_request(0);
