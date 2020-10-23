@@ -147,7 +147,7 @@ class move_snap_helper_t : public wf::custom_data_t
          */
         if (view->fullscreen)
         {
-            wf::output_t *output   = wf::get_core().get_active_output();
+            wf::output_t *output = wf::get_core().get_active_output();
             wf::geometry_t output_geometry = output->get_relative_geometry();
             wf::point_t current_ws = output->workspace;
             wf::point_t target_ws;
@@ -158,7 +158,7 @@ class move_snap_helper_t : public wf::custom_data_t
             target_ws.y =
                 floor(
                     (last_grabbing_position.y / output_geometry.height) +
-                    current_ws.y);                    
+                    current_ws.y);
             view->fullscreen_request(output, true, target_ws);
         }
     }
