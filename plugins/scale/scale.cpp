@@ -95,6 +95,7 @@ class wayfire_scale : public wf::plugin_interface_t
     wf::option_wrapper_t<bool> middle_click_close{"scale/middle_click_close"};
     wf::option_wrapper_t<double> inactive_alpha{"scale/inactive_alpha"};
     wf::option_wrapper_t<bool> allow_scale_zoom{"scale/allow_zoom"};
+    wf::option_wrapper_t<bool> show_minimized{"scale/show_minimized"};
 
     /* maximum scale -- 1.0 means we will not "zoom in" on a view */
     const double max_scale_factor = 1.0;
@@ -691,17 +692,36 @@ class wayfire_scale : public wf::plugin_interface_t
         output->render->damage_whole();
     }
 
-    /* Returns a list of views for all workspaces */
+    /* Returns a list of views for all workspaces
+     * Also takes minimized views out of the minimized layer
+     * and stores the state */
     std::vector<wayfire_view> get_all_workspace_views()
     {
         std::vector<wayfire_view> views;
 
+        uint32_t layer_mask = wf::LAYER_WORKSPACE;
+        if (show_minimized)
+        {
+            layer_mask |= wf::LAYER_MINIMIZED;
+        }
+
         for (auto& view :
-             output->workspace->get_views_in_layer(wf::LAYER_WORKSPACE))
+             output->workspace->get_views_in_layer(layer_mask))
         {
             if ((view->role != wf::VIEW_ROLE_TOPLEVEL) || !view->is_mapped())
             {
                 continue;
+            }
+
+            if (show_minimized)
+            {
+                if (output->workspace->get_view_layer(view) == wf::LAYER_MINIMIZED)
+                {
+                    view->minimize_request(false);
+                    view->store_data(
+                        std::make_unique<wf::custom_data_t>(),
+                        "scale-minimized-ws-layer");
+                }
             }
 
             views.push_back(view);
@@ -710,13 +730,21 @@ class wayfire_scale : public wf::plugin_interface_t
         return views;
     }
 
-    /* Returns a list of views for the current workspace */
+    /* Returns a list of views for the current workspaces
+     * Also takes minimized views out of the minimized layer
+     * and stores the state */
     std::vector<wayfire_view> get_current_workspace_views()
     {
         std::vector<wayfire_view> views;
 
+        uint32_t layer_mask = wf::LAYER_WORKSPACE;
+        if (show_minimized)
+        {
+            layer_mask |= wf::LAYER_MINIMIZED;
+        }
+
         for (auto& view :
-             output->workspace->get_views_in_layer(wf::LAYER_WORKSPACE))
+             output->workspace->get_views_in_layer(layer_mask))
         {
             if ((view->role != wf::VIEW_ROLE_TOPLEVEL) || !view->is_mapped())
             {
@@ -730,6 +758,18 @@ class wayfire_scale : public wf::plugin_interface_t
 
             if (wr.contains_point(center))
             {
+                if (show_minimized)
+                {
+                    if (output->workspace->get_view_layer(view) ==
+                        wf::LAYER_MINIMIZED)
+                    {
+                        view->minimize_request(false);
+                        view->store_data(
+                            std::make_unique<wf::custom_data_t>(),
+                            "scale-minimized-ws-layer");
+                    }
+                }
+
                 views.push_back(view);
             }
         }
@@ -1058,6 +1098,10 @@ class wayfire_scale : public wf::plugin_interface_t
     wf::signal_connection_t view_minimized = [this] (wf::signal_data_t *data)
     {
         auto ev = static_cast<wf::view_minimized_signal*>(data);
+        if (show_minimized)
+        {
+            return;
+        }
 
         if (ev->state)
         {
@@ -1169,6 +1213,9 @@ class wayfire_scale : public wf::plugin_interface_t
             return false;
         }
 
+        initial_workspace  = output->workspace->get_current_workspace();
+        initial_focus_view = output->get_active_view();
+
         auto views = get_views();
         if (views.empty())
         {
@@ -1177,9 +1224,20 @@ class wayfire_scale : public wf::plugin_interface_t
             return false;
         }
 
-        initial_workspace  = output->workspace->get_current_workspace();
-        initial_focus_view = output->get_active_view();
         current_focus_view = initial_focus_view ?: views.front();
+
+        if (current_focus_view->has_data("scale-minimized-ws-layer"))
+        {
+            for (auto v : views)
+            {
+                if (!v->has_data("scale-minimized-ws-layer"))
+                {
+                    current_focus_view = v;
+                    break;
+                }
+            }
+        }
+
         // Make sure no leftover events from the activation binding
         // trigger an action in scale
         last_selected_view = nullptr;
@@ -1252,6 +1310,21 @@ class wayfire_scale : public wf::plugin_interface_t
     {
         active = false;
         input_release_impending = false;
+        if (show_minimized)
+        {
+            auto views = get_views();
+            for (auto v : views)
+            {
+                if (v->has_data("scale-minimized-ws-layer"))
+                {
+                    v->erase_data("scale-minimized-ws-layer");
+                    if (v != current_focus_view)
+                    {
+                        v->minimize_request(true);
+                    }
+                }
+            }
+        }
 
         unset_hook();
         remove_transformers();
@@ -1265,6 +1338,7 @@ class wayfire_scale : public wf::plugin_interface_t
         view_minimized.disconnect();
         workspace_changed.disconnect();
         view_geometry_changed.disconnect();
+
         output->deactivate_plugin(grab_interface);
     }
 
