@@ -19,6 +19,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
   protected:
     static xcb_atom_t _NET_WM_WINDOW_TYPE_NORMAL;
     static xcb_atom_t _NET_WM_WINDOW_TYPE_DIALOG;
+    static xcb_atom_t _NET_WM_WINDOW_TYPE_SPLASH;
 
     static void load_atom(xcb_connection_t *connection,
         xcb_atom_t& atom, const std::string& name)
@@ -52,6 +53,8 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
             "_NET_WM_WINDOW_TYPE_NORMAL");
         load_atom(connection, _NET_WM_WINDOW_TYPE_DIALOG,
             "_NET_WM_WINDOW_TYPE_DIALOG");
+        load_atom(connection, _NET_WM_WINDOW_TYPE_SPLASH,
+            "_NET_WM_WINDOW_TYPE_SPLASH");
 
         xcb_disconnect(connection);
         return true;
@@ -263,6 +266,12 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         }
     }
 
+    virtual bool should_be_decorated() override
+    {
+        return (wf::wlr_view_t::should_be_decorated() &&
+            !has_type(_NET_WM_WINDOW_TYPE_SPLASH));
+    }
+
     /* Translates geometry from X client configure requests to wayfire
      * coordinate system. The X coordinate system treats all outputs
      * as one big desktop, whereas wayfire treats the current workspace
@@ -460,6 +469,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
 
 xcb_atom_t wayfire_xwayland_view_base::_NET_WM_WINDOW_TYPE_NORMAL;
 xcb_atom_t wayfire_xwayland_view_base::_NET_WM_WINDOW_TYPE_DIALOG;
+xcb_atom_t wayfire_xwayland_view_base::_NET_WM_WINDOW_TYPE_SPLASH;
 
 class wayfire_unmanaged_xwayland_view : public wayfire_xwayland_view_base
 {
