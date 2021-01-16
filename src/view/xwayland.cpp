@@ -74,7 +74,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
   protected:
     wf::wl_listener_wrapper on_destroy, on_unmap, on_map, on_configure,
         on_set_title, on_set_app_id, on_or_changed, on_set_decorations,
-        on_ping_timeout, on_set_window_type;
+        on_ping_timeout, on_request_reload_configure, on_set_window_type;
 
     wlr_xwayland_surface *xw;
     /** The geometry requested by the client */
@@ -161,6 +161,33 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         on_destroy.set_callback([&] (void*) { destroy(); });
         on_configure.set_callback([&] (void *data)
         {
+            LOGE("on_configure callback");
+            if (xw->size_hints)
+            {
+                LOGE(
+                    "on_configure@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!size_hints->base_width",
+                    xw->size_hints->base_width);
+                LOGE(
+                    "on_configure@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!base_height",
+                    xw->size_hints->base_height);
+                LOGE(
+                    "on_configure@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!min_width",
+                    xw->size_hints->min_width);
+                LOGE(
+                    "on_configure@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!min_height",
+                    xw->size_hints->min_height);
+                LOGE(
+                    "on_configure@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!max_width",
+                    xw->size_hints->max_width);
+                LOGE(
+                    "on_configure@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!max_height",
+                    xw->size_hints->max_height);
+            } else
+            {
+                LOGE(
+                    "on_configure@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! no size hints");
+            }
+
             auto ev = static_cast<wlr_xwayland_surface_configure_event*>(data);
             wf::point_t output_origin = {0, 0};
             if (get_output())
@@ -236,6 +263,11 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         {
             wf::emit_ping_timeout_signal(self());
         });
+        on_request_reload_configure.set_callback([&] (void*)
+        {
+            LOGE("re-request configure");
+            request_native_size();
+        });
         on_set_window_type.set_callback([&] (void*)
         {
             recreate_view();
@@ -253,6 +285,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         on_set_app_id.connect(&xw->events.set_class);
         on_or_changed.connect(&xw->events.set_override_redirect);
         on_ping_timeout.connect(&xw->events.ping_timeout);
+        on_request_reload_configure.connect(&xw->events.request_reload_configure);
         on_set_decorations.connect(&xw->events.set_decorations);
         on_set_window_type.connect(&xw->events.set_window_type);
     }
@@ -278,6 +311,7 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         on_set_app_id.disconnect();
         on_or_changed.disconnect();
         on_ping_timeout.disconnect();
+        on_request_reload_configure.disconnect();
         on_set_decorations.disconnect();
         on_set_window_type.disconnect();
 
@@ -425,11 +459,81 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
     void set_geometry(wf::geometry_t geometry) override
     {
         wlr_view_t::move(geometry.x, geometry.y);
-        resize(geometry.width, geometry.height);
+        LOGE(
+            "set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!geometry.width",
+            geometry.width);
+        LOGE(
+            "set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!geometry.height",
+            geometry.height);
+
+        if (xw->size_hints)
+        {
+            int use_width  = geometry.width;
+            int use_height = geometry.height;
+            bool min_width_set  = (w->size_hints->min_width != -1);
+            bool max_width_set  = (w->size_hints->max_width != -1);
+            bool min_height_set = (w->size_hints->min_height != -1);
+            bool max_height_set = (w->size_hints->max_height != -1);
+
+            bool w_fixed = min_width_set && (xw->size_hints->max_width == xw->size_hints->min_width);
+            bool h_fixed = min_height_set && (xw->size_hints->max_height == xw->size_hints->min_height);
+
+            if (w_fixed)
+            {
+                use_width = xw->size_hints->max_width;
+            } else if ((use_width > xw->size_hints->max_width) && max_width_set)
+            {
+                use_width = xw->size_hints->max_width;
+            } else if ((use_width < xw->size_hints->min_width) && min_width_set)
+            {
+                use_width = xw->size_hints->min_width;
+            }
+
+            if (h_fixed)
+            {
+                use_height = xw->size_hints->max_height;
+            } else if (max_height_set && (use_height > xw->size_hints->max_height))
+            {
+                use_height = xw->size_hints->max_height;
+            } else if (min_height_set && (use_height < xw->size_hints->min_height))
+            {
+                use_height = xw->size_hints->min_height;
+            }
+
+            LOGE("set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                 "size_hints->base_width",
+                xw->size_hints->base_width);
+            LOGE("set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                 "base_height",
+                xw->size_hints->base_height);
+            LOGE("set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                 "min_width",
+                xw->size_hints->min_width);
+            LOGE("set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                 "min_height",
+                xw->size_hints->min_height);
+            LOGE("set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                 "max_width",
+                xw->size_hints->max_width);
+            LOGE("set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                 "max_height",
+                xw->size_hints->max_height);
+            LOGE("set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                 "max_height",
+                xw->size_hints->max_height);
+            LOGE("set_geometry@!!!!!resize to:", use_width, use_height);
+            resize(use_width, use_height);
+        } else
+        {
+            LOGE(
+                "set_geometry@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!no size hints");
+            resize(geometry.width, geometry.height);
+        }
     }
 
     void send_configure(int width, int height)
     {
+        LOGE("send_configure @ 489", width, height);
         if (!xw)
         {
             return;
@@ -462,6 +566,8 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
 
     void send_configure()
     {
+        LOGE("send_configure @ 522", last_size_request.width,
+            last_size_request.height);
         send_configure(last_size_request.width, last_size_request.height);
     }
 
@@ -713,10 +819,11 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
 
     void resize(int w, int h) override
     {
-        if (view_impl->frame)
-        {
-            view_impl->frame->calculate_resize_size(w, h);
-        }
+        LOGE("REAL resize1", w, h);
+        // if (view_impl->frame)
+        // {
+        // view_impl->frame->calculate_resize_size(w, h);
+        // }
 
         wf::dimensions_t current_size = {
             get_output_geometry().width,
@@ -727,17 +834,103 @@ class wayfire_xwayland_view : public wayfire_xwayland_view_base
             return;
         }
 
-        this->last_size_request = {w, h};
-        send_configure(w, h);
+        LOGE("REAL resize2", w, h);
+        /**
+         * should_resize_client has no concept of only hinting
+         * vertical or horizontal resizing.
+         * if either horizontal/vertical is acceptable it should be allowed
+         * in that direction only if the other is not acceptable
+         */
+        bool height_accetable = true;
+        bool width_accetable  = true;
+
+        if ((h > xw->size_hints->max_height) && (xw->size_hints->max_height != -1))
+        {
+            height_accetable = false;
+        }
+
+        if (h < xw->size_hints->min_height)
+        {
+            height_accetable = false;
+        }
+
+        if ((w > xw->size_hints->max_width) && (xw->size_hints->max_width != -1))
+        {
+            width_accetable = false;
+        }
+
+        if (w < xw->size_hints->min_width)
+        {
+            width_accetable = false;
+        }
+
+        if (width_accetable && height_accetable)
+        {
+            this->last_size_request = {w, h};
+            send_configure(w, h);
+        } else if (width_accetable)
+        {
+            this->last_size_request = {w, current_size.height};
+            send_configure(w, current_size.height);
+        } else if (height_accetable)
+        {
+            this->last_size_request = {current_size.width, h};
+            send_configure(current_size.width, h);
+        }
     }
 
+/*    virtual bool should_resize_client(wf::dimensions_t request,
+ *       wf::dimensions_t current_size) override
+ *   {
+ *      bool height_accetable = true;
+ *      bool width_accetable = true;
+ *
+ *      if (request.height > xw->size_hints->max_height && xw->size_hints->max_height
+ * != -1)
+ *          height_accetable = false;
+ *
+ *      if (request.height < xw->size_hints->min_height)
+ *          height_accetable = false;
+ *
+ *      if (request.width > xw->size_hints->max_width && xw->size_hints->max_width !=
+ * -1)
+ *          width_accetable = false;
+ *
+ *      if (request.width < xw->size_hints->min_width)
+ *          width_accetable = false;
+ *
+ *      if (width_accetable && height_accetable)
+ *          return wf::wlr_view_t::should_resize_client(request, current_size);
+ *      else
+ *        return false;
+ *   }
+ */
     virtual void request_native_size() override
     {
+        LOGE("request_native_size");
         if (!is_mapped() || !xw->size_hints)
         {
             return;
         }
 
+        LOGE(
+            "request_native_size@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!size_hints->base_width",
+            xw->size_hints->base_width);
+        LOGE(
+            "request_native_size@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!base_height",
+            xw->size_hints->base_height);
+        LOGE(
+            "request_native_size@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!min_width",
+            xw->size_hints->min_width);
+        LOGE(
+            "request_native_size@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!min_height",
+            xw->size_hints->min_height);
+        LOGE(
+            "request_native_size@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!max_width",
+            xw->size_hints->max_width);
+        LOGE(
+            "request_native_size@!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!max_height",
+            xw->size_hints->max_height);
         if ((xw->size_hints->base_width > 0) && (xw->size_hints->base_height > 0))
         {
             this->last_size_request = {
