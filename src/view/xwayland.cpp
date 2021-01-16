@@ -470,10 +470,10 @@ class wayfire_xwayland_view_base : public wf::wlr_view_t
         {
             int use_width  = geometry.width;
             int use_height = geometry.height;
-            bool min_width_set  = (w->size_hints->min_width != -1);
-            bool max_width_set  = (w->size_hints->max_width != -1);
-            bool min_height_set = (w->size_hints->min_height != -1);
-            bool max_height_set = (w->size_hints->max_height != -1);
+            bool min_width_set  = (xw->size_hints->min_width != -1);
+            bool max_width_set  = (xw->size_hints->max_width != -1);
+            bool min_height_set = (xw->size_hints->min_height != -1);
+            bool max_height_set = (xw->size_hints->max_height != -1);
 
             bool w_fixed = min_width_set && (xw->size_hints->max_width == xw->size_hints->min_width);
             bool h_fixed = min_height_set && (xw->size_hints->max_height == xw->size_hints->min_height);
